@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The /buddy Census — Live Population Dashboard</title>
+<meta name="description" content="Crowd-sourced census of Claude Code /buddy species. How many Legendaries exist? Register yours and find out.">
+<meta property="og:title" content="The /buddy Census — Live Population Dashboard">
+<meta property="og:description" content="Crowd-sourced census of Claude Code /buddy species. How many Legendaries exist?">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://shipitandpray.github.io/buddy-census/">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
+  --text:#e6edf3;--text2:#8b949e;--text3:#484f58;
+  --accent:#7c5cff;--accent2:#ff6b9d;
+  --common:#8b949e;--uncommon:#3fb950;--rare:#58a6ff;--epic:#bc8cff;--legendary:#f0883e;
+  --shiny:#ffd700;
+  --font-mono:'SF Mono','Cascadia Code','Fira Code',Consolas,'Courier New',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font-mono);min-height:100vh;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+::selection{background:var(--accent);color:#fff}
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* Layout */
+.container{max-width:1100px;margin:0 auto;padding:0 20px}
+
+/* Hero */
+.hero{text-align:center;padding:60px 20px 40px;position:relative}
+.hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:800px;height:500px;background:radial-gradient(ellipse,rgba(124,92,255,.08) 0%,transparent 70%);pointer-events:none}
+.hero h1{font-size:clamp(1.8rem,5vw,3rem);font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
+.hero h1 .grad{background:linear-gradient(135deg,#7c5cff,#ff6b9d,#f0883e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero .subtitle{color:var(--text2);font-size:.95rem;margin-bottom:24px}
+.live-counter{display:inline-block;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 20px;font-size:1.1rem;margin-bottom:32px}
+.live-counter .num{color:var(--accent);font-weight:700}
+.live-counter .blink{animation:blink 1s step-end infinite;color:var(--uncommon)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Input */
+.input-section{display:flex;gap:10px;max-width:520px;margin:0 auto 16px;flex-wrap:wrap;justify-content:center}
+.input-section input{flex:1;min-width:260px;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--font-mono);font-size:.95rem;outline:none;transition:border-color .2s}
+.input-section input:focus{border-color:var(--accent)}
+.input-section input::placeholder{color:var(--text3)}
+.btn{padding:10px 20px;border-radius:8px;border:1px solid var(--border);cursor:pointer;font-family:var(--font-mono);font-size:.85rem;font-weight:600;transition:all .15s;background:var(--surface2);color:var(--text)}
+.btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#6a4ae0}
+.btn-sim{background:var(--surface);border-color:var(--border);color:var(--text2);font-size:.8rem}
+.btn-sim:hover{background:var(--surface2);color:var(--text)}
+
+/* Result card */
+.result-card{display:none;max-width:480px;margin:24px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:left}
+.result-card.show{display:block;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.result-header{display:flex;align-items:center;gap:16px;margin-bottom:12px}
+.result-sprite{white-space:pre;font-size:14px;line-height:1.3;color:var(--text)}
+.result-info h3{font-size:1.1rem;margin-bottom:2px}
+.result-info .rarity-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:700;text-transform:uppercase}
+.result-info .stats{font-size:.75rem;color:var(--text2);margin-top:4px}
+.result-shiny{color:var(--shiny);font-weight:700;font-size:.85rem;animation:shinyPulse 1.5s ease infinite}
+@keyframes shinyPulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* Section titles */
+.section{padding:40px 0}
+.section-title{font-size:1.2rem;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.section-title .icon{font-size:1rem}
+
+/* Distribution bars */
+.dist-grid{display:grid;gap:6px}
+.dist-row{display:grid;grid-template-columns:90px 1fr 50px;align-items:center;gap:8px;font-size:.8rem}
+.dist-row .name{text-align:right;color:var(--text2);text-transform:capitalize}
+.dist-row .bar-wrap{height:20px;background:var(--surface);border-radius:4px;overflow:hidden;position:relative}
+.dist-row .bar{height:100%;border-radius:4px;transition:width .6s ease;min-width:2px}
+.dist-row .count{color:var(--text2);font-size:.75rem}
+.dist-row .bar-wrap .pct-label{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:.65rem;color:rgba(255,255,255,.7)}
+
+/* Rarity pie area */
+.rarity-grid{display:grid;grid-template-columns:200px 1fr;gap:32px;align-items:center}
+@media(max-width:600px){.rarity-grid{grid-template-columns:1fr;justify-items:center}}
+.pie-container{position:relative;width:200px;height:200px}
+.pie-container canvas{width:200px;height:200px}
+.pie-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-size:.7rem;color:var(--text2)}
+.pie-center .total{font-size:1.2rem;font-weight:700;color:var(--text)}
+.rarity-legend{display:grid;gap:8px}
+.legend-row{display:grid;grid-template-columns:12px 90px 60px 60px 1fr;align-items:center;gap:8px;font-size:.8rem}
+.legend-dot{width:12px;height:12px;border-radius:50%}
+.legend-row .name{text-transform:capitalize;font-weight:600}
+.legend-row .actual,.legend-row .theory{color:var(--text2)}
+.legend-row .diff{font-size:.7rem}
+.diff-up{color:var(--uncommon)}
+.diff-down{color:var(--accent2)}
+
+/* Shiny tracker */
+.shiny-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center}
+.shiny-count{font-size:3rem;font-weight:800;color:var(--shiny);text-shadow:0 0 20px rgba(255,215,0,.3)}
+.shiny-label{color:var(--text2);font-size:.85rem;margin-top:4px}
+
+/* Hall of Legendaries */
+.legendary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.legendary-card{background:var(--surface);border:1px solid var(--legendary);border-radius:8px;padding:12px;text-align:center;position:relative;overflow:hidden}
+.legendary-card::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:conic-gradient(from 0deg,transparent,rgba(240,136,62,.05),transparent,rgba(240,136,62,.05));animation:legendSpin 4s linear infinite}
+@keyframes legendSpin{to{transform:rotate(360deg)}}
+.legendary-card .sprite{white-space:pre;font-size:11px;line-height:1.25;margin-bottom:6px;position:relative;z-index:1}
+.legendary-card .username{font-size:.7rem;color:var(--text2);word-break:break-all;position:relative;z-index:1}
+.legendary-card .species-name{font-size:.75rem;color:var(--legendary);font-weight:700;position:relative;z-index:1}
+.empty-legendary{color:var(--text3);font-size:.85rem;font-style:italic;grid-column:1/-1;text-align:center;padding:20px}
+
+/* Species cards */
+.species-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.species-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;transition:border-color .2s}
+.species-card:hover{border-color:var(--accent)}
+.species-card .sprite{white-space:pre;font-size:10px;line-height:1.2;margin-bottom:4px;color:var(--text)}
+.species-card .name{font-size:.75rem;font-weight:700;text-transform:capitalize;margin-bottom:2px}
+.species-card .pct{font-size:.65rem;color:var(--text2)}
+
+/* Simulation */
+.sim-section{text-align:center;padding:20px 0 40px}
+.sim-controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.sim-status{color:var(--text2);font-size:.8rem;min-height:20px}
+
+/* Footer */
+footer{text-align:center;padding:40px 20px;border-top:1px solid var(--border);color:var(--text3);font-size:.75rem}
+footer a{color:var(--text2)}
+
+/* Mobile */
+@media(max-width:600px){
+  .hero{padding:40px 16px 24px}
+  .dist-row{grid-template-columns:70px 1fr 40px;font-size:.7rem}
+  .legendary-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+  .species-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+  .rarity-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>The <span class="grad">/buddy</span> Census</h1>
+  <p class="subtitle">Crowd-sourced population count of every Claude Code buddy species</p>
+  <div class="live-counter"><span class="blink">*</span> <span class="num" id="totalCount">0</span> buddies registered</div>
+
+  <div class="input-section">
+    <input type="text" id="usernameInput" placeholder="Enter your Claude username..." autocomplete="off" spellcheck="false">
+    <button class="btn btn-primary" id="registerBtn">Register</button>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <pre class="result-sprite" id="resultSprite"></pre>
+      <div class="result-info">
+        <h3 id="resultSpecies"></h3>
+        <span class="rarity-badge" id="resultRarity"></span>
+        <span class="result-shiny" id="resultShiny" style="display:none">SHINY!</span>
+        <div class="stats" id="resultStats"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Species Distribution -->
+  <div class="section">
+    <div class="section-title"><span class="icon">|</span> Species Distribution</div>
+    <div class="dist-grid" id="distGrid"></div>
+  </div>
+
+  <!-- Rarity Breakdown -->
+  <div class="section">
+    <div class="section-title"><span class="icon">%</span> Rarity Breakdown</div>
+    <div class="rarity-grid">
+      <div class="pie-container">
+        <canvas id="pieCanvas" width="400" height="400"></canvas>
+        <div class="pie-center">
+          <div class="total" id="pieTotal">0</div>
+          <div>total</div>
+        </div>
+      </div>
+      <div class="rarity-legend" id="rarityLegend"></div>
+    </div>
+  </div>
+
+  <!-- Shiny Tracker -->
+  <div class="section">
+    <div class="section-title"><span class="icon">*</span> Shiny Tracker</div>
+    <div class="shiny-box">
+      <div class="shiny-count" id="shinyCount">0</div>
+      <div class="shiny-label">confirmed shinies out of <span id="shinyTotal">0</span> registered</div>
+    </div>
+  </div>
+
+  <!-- Hall of Legendaries -->
+  <div class="section">
+    <div class="section-title"><span class="icon">#</span> Hall of Legendaries</div>
+    <div class="legendary-grid" id="legendaryGrid">
+      <div class="empty-legendary">No legendaries registered yet. Will yours be the first?</div>
+    </div>
+  </div>
+
+  <!-- All Species -->
+  <div class="section">
+    <div class="section-title"><span class="icon">@</span> All 18 Species</div>
+    <div class="species-grid" id="speciesGrid"></div>
+  </div>
+
+  <!-- Simulation -->
+  <div class="section sim-section">
+    <div class="section-title" style="justify-content:center"><span class="icon">~</span> Simulation Mode</div>
+    <p style="color:var(--text2);font-size:.8rem;margin-bottom:12px">Validate theoretical distribution by simulating sequential user IDs</p>
+    <div class="sim-controls">
+      <button class="btn btn-sim" onclick="runSimulation(1000)">Simulate 1,000</button>
+      <button class="btn btn-sim" onclick="runSimulation(10000)">Simulate 10,000</button>
+      <button class="btn btn-sim" onclick="runSimulation(50000)">Simulate 50,000</button>
+      <button class="btn btn-sim" onclick="clearSimulation()">Clear Simulation</button>
+    </div>
+    <div class="sim-status" id="simStatus"></div>
+  </div>
+
+</div>
+
+<footer>
+  Powered by <a href="https://github.com/ShipItAndPray" target="_blank">ShipItAndPray</a> &middot;
+  /buddy data derived from Claude Code source &middot;
+  All computation runs client-side
+</footer>
+
+<script>
+// ============================================================
+// PRNG + Hash — exact match to Claude Code's companion.ts
+// ============================================================
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function() {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashString(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function pick(rng, arr) {
+  return arr[Math.floor(rng() * arr.length)];
+}
+
+// ============================================================
+// Species, Rarity, Eyes, Hats — all 18 species
+// ============================================================
+const SPECIES = ['duck','goose','blob','cat','dragon','octopus','owl','penguin','turtle','snail','ghost','axolotl','capybara','cactus','robot','rabbit','mushroom','chonk'];
+const RARITIES = ['common','uncommon','rare','epic','legendary'];
+const RARITY_WEIGHTS = { common:60, uncommon:25, rare:10, epic:4, legendary:1 };
+const EYES = ['\u00B7','\u2726','\u00D7','\u25C9','@','\u00B0'];
+const HATS = ['none','crown','tophat','propeller','halo','wizard','beanie','tinyduck'];
+const STAT_NAMES = ['DEBUGGING','PATIENCE','CHAOS','WISDOM','SNARK'];
+const RARITY_FLOOR = { common:5, uncommon:15, rare:25, epic:35, legendary:50 };
+const SALT = 'friend-2026-401';
+
+const RARITY_COLORS_HEX = {
+  common:'#8b949e', uncommon:'#3fb950', rare:'#58a6ff', epic:'#bc8cff', legendary:'#f0883e'
+};
+const RARITY_STARS = {
+  common:'\u2605', uncommon:'\u2605\u2605', rare:'\u2605\u2605\u2605', epic:'\u2605\u2605\u2605\u2605', legendary:'\u2605\u2605\u2605\u2605\u2605'
+};
+
+// ============================================================
+// ASCII Sprites (frame 0 only for display)
+// ============================================================
+const SPRITES = {
+  duck: [
+    '    __      ',
+    '  <(\u00B7 )___  ',
+    '   (  ._>   ',
+    '    `--\u00B4    '
+  ],
+  goose: [
+    '     (\u00B7>    ',
+    '     ||     ',
+    '   _(__)_   ',
+    '    ^^^^    '
+  ],
+  blob: [
+    '   .----.   ',
+    '  ( \u00B7  \u00B7 )  ',
+    '  (      )  ',
+    '   `----\u00B4   '
+  ],
+  cat: [
+    '   /\\_/\\    ',
+    '  ( \u00B7   \u00B7)  ',
+    '  (  \u03C9  )   ',
+    '  (")_(")   '
+  ],
+  dragon: [
+    '  /^\\  /^\\  ',
+    ' <  \u00B7  \u00B7  > ',
+    ' (   ~~   ) ',
+    '  `-vvvv-\u00B4  '
+  ],
+  octopus: [
+    '   .----.   ',
+    '  ( \u00B7  \u00B7 )  ',
+    '  (______)  ',
+    '  /\\/\\/\\/\\  '
+  ],
+  owl: [
+    '   /\\  /\\   ',
+    '  ((\u00B7)(\u00B7))  ',
+    '  (  ><  )  ',
+    '   `----\u00B4   '
+  ],
+  penguin: [
+    '  .---.     ',
+    '  (\u00B7>\u00B7)     ',
+    ' /(   )\\    ',
+    '  `---\u00B4     '
+  ],
+  turtle: [
+    '   _,--._   ',
+    '  ( \u00B7  \u00B7 )  ',
+    ' /[______]\\ ',
+    '  ``    ``  '
+  ],
+  snail: [
+    ' \u00B7    .--.  ',
+    '  \\  ( @ )  ',
+    '   \\_`--\u00B4   ',
+    '  ~~~~~~~   '
+  ],
+  ghost: [
+    '   .----.   ',
+    '  / \u00B7  \u00B7 \\  ',
+    '  |      |  ',
+    '  ~`~``~`~  '
+  ],
+  axolotl: [
+    '}~(______)~{',
+    '}~(\u00B7 .. \u00B7)~{',
+    '  ( .--. )  ',
+    '  (_/  \\_)  '
+  ],
+  capybara: [
+    '  n______n  ',
+    ' ( \u00B7    \u00B7 ) ',
+    ' (   oo   ) ',
+    '  `------\u00B4  '
+  ],
+  cactus: [
+    ' n  ____  n ',
+    ' | |\u00B7  \u00B7| | ',
+    ' |_|    |_| ',
+    '   |    |   '
+  ],
+  robot: [
+    '   .[||].   ',
+    '  [ \u00B7  \u00B7 ]  ',
+    '  [ ==== ]  ',
+    '  `------\u00B4  '
+  ],
+  rabbit: [
+    '   (\\__/)   ',
+    '  ( \u00B7  \u00B7 )  ',
+    ' =(  ..  )= ',
+    '  (")__(")  '
+  ],
+  mushroom: [
+    ' .-o-OO-o-. ',
+    '(__________)',
+    '   |\u00B7  \u00B7|   ',
+    '   |____|   '
+  ],
+  chonk: [
+    '  /\\    /\\  ',
+    ' ( \u00B7    \u00B7 ) ',
+    ' (   ..   ) ',
+    '  `------\u00B4  '
+  ]
+};
+
+function getSpriteWithEye(species, eye) {
+  const base = SPRITES[species];
+  if (!base) return ['???'];
+  return base.map(line => line.replaceAll('\u00B7', eye));
+}
+
+// ============================================================
+// Roll logic — mirrors companion.ts exactly
+// ============================================================
+function rollRarity(rng) {
+  const total = Object.values(RARITY_WEIGHTS).reduce((a, b) => a + b, 0);
+  let roll = rng() * total;
+  for (const rarity of RARITIES) {
+    roll -= RARITY_WEIGHTS[rarity];
+    if (roll < 0) return rarity;
+  }
+  return 'common';
+}
+
+function rollStats(rng, rarity) {
+  const floor = RARITY_FLOOR[rarity];
+  const peak = pick(rng, STAT_NAMES);
+  let dump = pick(rng, STAT_NAMES);
+  while (dump === peak) dump = pick(rng, STAT_NAMES);
+  const stats = {};
+  for (const name of STAT_NAMES) {
+    if (name === peak) {
+      stats[name] = Math.min(100, floor + 50 + Math.floor(rng() * 30));
+    } else if (name === dump) {
+      stats[name] = Math.max(1, floor - 10 + Math.floor(rng() * 15));
+    } else {
+      stats[name] = floor + Math.floor(rng() * 40);
+    }
+  }
+  return stats;
+}
+
+function rollBuddy(userId) {
+  const key = userId + SALT;
+  const rng = mulberry32(hashString(key));
+  const rarity = rollRarity(rng);
+  const species = pick(rng, SPECIES);
+  const eye = pick(rng, EYES);
+  const hat = rarity === 'common' ? 'none' : pick(rng, HATS);
+  const shiny = rng() < 0.01;
+  const stats = rollStats(rng, rarity);
+  return { rarity, species, eye, hat, shiny, stats, userId };
+}
+
+// ============================================================
+// State — localStorage backed
+// ============================================================
+const STORAGE_KEY = 'buddy-census-v1';
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return { registrations: {} }; // { userId: true }
+}
+
+function saveState(state) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+let state = loadState();
+let simBuddies = []; // separate from real registrations
+
+function getAllBuddies() {
+  const real = Object.keys(state.registrations).map(uid => rollBuddy(uid));
+  return [...real, ...simBuddies];
+}
+
+function getRealBuddies() {
+  return Object.keys(state.registrations).map(uid => rollBuddy(uid));
+}
+
+// ============================================================
+// Registration
+// ============================================================
+function registerUser(userId) {
+  userId = userId.trim();
+  if (!userId) return null;
+  state.registrations[userId] = true;
+  saveState(state);
+  return rollBuddy(userId);
+}
+
+// ============================================================
+// Render functions
+// ============================================================
+function renderAll() {
+  const all = getAllBuddies();
+  const real = getRealBuddies();
+  renderCounter(all);
+  renderDistribution(all);
+  renderPie(all);
+  renderShiny(all);
+  renderLegendaries(real); // only real users in hall
+  renderSpeciesCards(all);
+}
+
+function renderCounter(buddies) {
+  document.getElementById('totalCount').textContent = buddies.length.toLocaleString();
+  document.getElementById('pieTotal').textContent = buddies.length.toLocaleString();
+  document.getElementById('shinyTotal').textContent = buddies.length.toLocaleString();
+}
+
+function renderDistribution(buddies) {
+  const counts = {};
+  SPECIES.forEach(s => counts[s] = 0);
+  buddies.forEach(b => counts[b.species]++);
+  const max = Math.max(1, ...Object.values(counts));
+  const sorted = SPECIES.slice().sort((a, b) => counts[b] - counts[a]);
+  const grid = document.getElementById('distGrid');
+  grid.innerHTML = sorted.map(sp => {
+    const c = counts[sp];
+    const pct = buddies.length ? ((c / buddies.length) * 100).toFixed(1) : '0.0';
+    const w = (c / max * 100).toFixed(1);
+    return `<div class="dist-row">
+      <span class="name">${sp}</span>
+      <div class="bar-wrap">
+        <div class="bar" style="width:${w}%;background:var(--accent)"></div>
+        <span class="pct-label">${pct}%</span>
+      </div>
+      <span class="count">${c}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderPie(buddies) {
+  const canvas = document.getElementById('pieCanvas');
+  const ctx = canvas.getContext('2d');
+  const cx = 200, cy = 200, r = 180;
+  ctx.clearRect(0, 0, 400, 400);
+
+  const counts = {};
+  RARITIES.forEach(r => counts[r] = 0);
+  buddies.forEach(b => counts[b.rarity]++);
+  const total = buddies.length || 1;
+
+  let angle = -Math.PI / 2;
+  RARITIES.forEach(rarity => {
+    const slice = (counts[rarity] / total) * Math.PI * 2;
+    if (slice > 0) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, angle, angle + slice);
+      ctx.closePath();
+      ctx.fillStyle = RARITY_COLORS_HEX[rarity];
+      ctx.fill();
+      angle += slice;
+    }
+  });
+
+  // Center hole
+  ctx.beginPath();
+  ctx.arc(cx, cy, 100, 0, Math.PI * 2);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  ctx.fill();
+
+  // Legend
+  const legend = document.getElementById('rarityLegend');
+  legend.innerHTML = RARITIES.map(rarity => {
+    const actual = ((counts[rarity] / total) * 100).toFixed(1);
+    const theory = (RARITY_WEIGHTS[rarity]).toFixed(0);
+    const diff = (parseFloat(actual) - parseFloat(theory)).toFixed(1);
+    const diffClass = diff > 0 ? 'diff-up' : diff < 0 ? 'diff-down' : '';
+    const diffStr = diff > 0 ? `+${diff}%` : `${diff}%`;
+    return `<div class="legend-row">
+      <div class="legend-dot" style="background:${RARITY_COLORS_HEX[rarity]}"></div>
+      <span class="name">${rarity}</span>
+      <span class="actual">${actual}%</span>
+      <span class="theory">(${theory}%)</span>
+      <span class="diff ${diffClass}">${diffStr}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderShiny(buddies) {
+  const count = buddies.filter(b => b.shiny).length;
+  document.getElementById('shinyCount').textContent = count;
+}
+
+function renderLegendaries(buddies) {
+  const legendaries = buddies.filter(b => b.rarity === 'legendary');
+  const grid = document.getElementById('legendaryGrid');
+  if (legendaries.length === 0) {
+    grid.innerHTML = '<div class="empty-legendary">No legendaries registered yet. Will yours be the first?</div>';
+    return;
+  }
+  grid.innerHTML = legendaries.map(b => {
+    const sprite = getSpriteWithEye(b.species, b.eye).join('\n');
+    return `<div class="legendary-card">
+      <pre class="sprite">${escHtml(sprite)}</pre>
+      <div class="species-name">${b.species} ${RARITY_STARS.legendary}</div>
+      <div class="username">${escHtml(b.userId)}${b.shiny ? ' <span style="color:var(--shiny)">SHINY</span>' : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderSpeciesCards(buddies) {
+  const counts = {};
+  SPECIES.forEach(s => counts[s] = 0);
+  buddies.forEach(b => counts[b.species]++);
+  const total = buddies.length || 1;
+  const grid = document.getElementById('speciesGrid');
+  grid.innerHTML = SPECIES.map(sp => {
+    const sprite = SPRITES[sp].join('\n');
+    const pct = ((counts[sp] / total) * 100).toFixed(1);
+    return `<div class="species-card">
+      <pre class="sprite">${escHtml(sprite)}</pre>
+      <div class="name">${sp}</div>
+      <div class="pct">${counts[sp]} (${pct}%)</div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showResult(buddy) {
+  const card = document.getElementById('resultCard');
+  card.classList.add('show');
+  const sprite = getSpriteWithEye(buddy.species, buddy.eye);
+  document.getElementById('resultSprite').textContent = sprite.join('\n');
+  document.getElementById('resultSpecies').textContent = `${buddy.species} ${RARITY_STARS[buddy.rarity]}`;
+  const badge = document.getElementById('resultRarity');
+  badge.textContent = buddy.rarity;
+  badge.style.background = RARITY_COLORS_HEX[buddy.rarity] + '22';
+  badge.style.color = RARITY_COLORS_HEX[buddy.rarity];
+  const shinyEl = document.getElementById('resultShiny');
+  shinyEl.style.display = buddy.shiny ? 'inline' : 'none';
+  const statsStr = STAT_NAMES.map(s => `${s}: ${buddy.stats[s]}`).join(' | ');
+  document.getElementById('resultStats').textContent = statsStr;
+  if (buddy.hat !== 'none') {
+    document.getElementById('resultStats').textContent += ` | HAT: ${buddy.hat}`;
+  }
+}
+
+// ============================================================
+// Simulation
+// ============================================================
+function runSimulation(count) {
+  const statusEl = document.getElementById('simStatus');
+  statusEl.textContent = `Simulating ${count.toLocaleString()} buddies...`;
+  simBuddies = [];
+  // Use setTimeout to not block UI
+  setTimeout(() => {
+    for (let i = 0; i < count; i++) {
+      simBuddies.push(rollBuddy(`sim-user-${i}`));
+    }
+    statusEl.textContent = `Simulation complete: ${count.toLocaleString()} buddies generated from sequential IDs`;
+    renderAll();
+  }, 50);
+}
+
+function clearSimulation() {
+  simBuddies = [];
+  document.getElementById('simStatus').textContent = 'Simulation cleared';
+  renderAll();
+}
+
+// ============================================================
+// Event handlers
+// ============================================================
+document.getElementById('registerBtn').addEventListener('click', () => {
+  const input = document.getElementById('usernameInput');
+  const userId = input.value.trim();
+  if (!userId) return;
+  const buddy = registerUser(userId);
+  if (buddy) {
+    showResult(buddy);
+    renderAll();
+  }
+});
+
+document.getElementById('usernameInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('registerBtn').click();
+});
+
+// ============================================================
+// Init
+// ============================================================
+renderAll();
+</script>
+</body>
+</html>
